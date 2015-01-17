@@ -67,6 +67,8 @@ new Handle:g_hRules = INVALID_HANDLE;
 // Timer Handle
 new Handle:g_hCooldownTimer = INVALID_HANDLE;
 new Handle:g_hAntiStuckTimer = INVALID_HANDLE;
+new Handle:g_hBuyTimer = INVALID_HANDLE;
+new Handle:g_hLimitTimer = INVALID_HANDLE;
 
 // Vector
 new Float:g_vSpawnPosition[3];
@@ -75,6 +77,7 @@ new Float:g_vAttackSpawnPosition[3];
 // Arrays
 new bool:g_aPlayerThinkHook[MAXPLAYERS + 1];
 new bool:g_aPlayerGodMode[MAXPLAYERS + 1];
+new bool:g_aPlayerLateJoin[MAXPLAYERS + 1];
 new g_aPlayerMoney[MAXPLAYERS + 1];
 
 // WarStatus
@@ -103,7 +106,7 @@ public OnPluginStart()
 	g_cBuyTime = AutoExecConfig_CreateConVar("sm_war_buy_time", "999", "Buytime during war (CS:GO uses seconds, CS:S uses minutes here)");
 	g_cLimitRounds = AutoExecConfig_CreateConVar("sm_war_limit_rounds", "10", "Min rounds between two war rounds (<= 0 = Disable limit)");
 	g_cDurationRounds = AutoExecConfig_CreateConVar("sm_war_duration_rounds", "3", "How many rounds will one war take", _, true, 1.0);
-	g_cAttackTeam = AutoExecConfig_CreateConVar("sm_war_attack_team", "2", "Which team will attack / wait in the equipment room? (1 = Random, 2 = Terrorists, 3 = Counter Terrorists)", _, true, 1.0, true, 3.0);
+	g_cAttackTeam = AutoExecConfig_CreateConVar("sm_war_attack_team", "2", "Which team will attack / wait in the equipment room? (1 = Random (currently not working), 2 = Terrorists, 3 = Counter Terrorists)", _, true, 1.0, true, 3.0);
 	g_cLimitTime = AutoExecConfig_CreateConVar("sm_war_limit_time", "600", "Max time a war round will take ( <= 0 = Disable limit )");
 	g_cRulesTime = AutoExecConfig_CreateConVar("sm_war_rules_display_time", "10", "Time in seconds the rules should be displayed");
 	g_cCooldownTime = AutoExecConfig_CreateConVar("sm_war_cooldown_time", "30.0", "Time in seconds the war starts after round start");
@@ -118,6 +121,7 @@ public OnPluginStart()
 	HookConVarChange(g_cLimitTime, ConVarChanged);
 	HookConVarChange(g_cLimitRounds, ConVarChanged);
 	HookConVarChange(g_cRulesTime, ConVarChanged);
+	HookConVarChange(g_cDFBuyTime, ConVarChanged);
 
 	if(g_bDebug)
 	{
@@ -136,6 +140,8 @@ public OnPluginStart()
 	HookEvent("round_start", Event_RoundStart_Callback);
 	HookEvent("player_connect", Event_PlayerConnect_Callback);
 	HookEvent("player_disconnect", Event_PlayerDisconnect_Callback);
+	HookEvent("player_spawn", Event_PlayerSpawn_Callback);
+	HookEvent("player_death", Event_PlayerDeath_Callback);
 
 	// Offsets
 	g_iPlayerAccount = FindSendPropOffs("CCSPlayer", "m_iAccount");
@@ -242,6 +248,7 @@ public Event_RoundEnd_Callback(Handle:event, const String:name[], bool:dontBroad
 	// Kill all active Timers
 	SaveKillTimer(g_hAntiStuckTimer);
 	SaveKillTimer(g_hCooldownTimer);
+	SaveKillTimer(g_hLimitTimer);
 }
 
 public Event_PlayerDisconnect_Callback(Handle:event, const String:name[], bool:dontBroadcast)
@@ -259,6 +266,8 @@ public Event_PlayerDisconnect_Callback(Handle:event, const String:name[], bool:d
 
 	// Reset money
 	g_aPlayerMoney[p_iClient] = 0;
+
+	g_aPlayerLateJoin[p_iClient] = true;
 }
 
 public Event_PlayerConnect_Callback(Handle:event, const String:name[], bool:dontBroadcast)
@@ -272,8 +281,46 @@ public Event_PlayerConnect_Callback(Handle:event, const String:name[], bool:dont
 	{
 		g_aPlayerThinkHook[p_iClient] = SDKHookEx(p_iClient, SDKHook_PostThink, SDKHook_PostThink_Callback);
 	}
+
+	g_aPlayerLateJoin[p_iClient] = true;
 }
 
+public Event_PlayerSpawn_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+{	
+	new p_iUserid = GetEventInt(event, "userid");
+	new p_iClient = GetClientOfUserId(p_iUserid);
+
+	if(g_bIsWar && g_aPlayerLateJoin[p_iClient] == true)
+	{
+		// oh no someone spawned lately
+		if(g_bIsCooldown)
+		{
+			// K great you'r still okay just send you to spawn
+			if(IsClientInGame(p_iClient) && GetClientTeam(p_iClient) == g_iAttackTeam)
+			{
+				// There you go :)
+				TeleportEntity(p_iClient, g_vAttackSpawnPosition, NULL_VECTOR, NULL_VECTOR);
+			}
+			else if(IsClientInGame(p_iClient) && GetClientTeam(p_iClient) == g_iDefenderTeam)
+			{
+				TeleportEntity(p_iClient, g_vSpawnPosition, NULL_VECTOR, NULL_VECTOR);
+			}
+		}
+		else
+		{
+			// :( You can't play this round :/
+			ForcePlayerSuicide(p_iClient);
+		}
+	}
+}
+
+public Event_PlayerDeath_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	new p_iUserid = GetEventInt(event, "userid");
+	new p_iClient = GetClientOfUserId(p_iUserid);
+
+	g_aPlayerLateJoin[p_iClient] = true;
+}
 /*
 	Hooks
 */
@@ -335,11 +382,24 @@ public Action:Timer_Cooldown(Handle:timer)
 		}
 	}
 
-	g_hAntiStuckTimer = CreateTimer(g_fAntiStuckTime, Timer_DisableAntiStuck, g_iAttackTeam);
+	AntiStuckTeam(g_iAttackTeam, false);
 	g_bIsCooldown = false;
 	CheckGodMode(true);
+	g_hLimitTimer = CreateTimer(g_fLimitTime, Timer_Limit);
 
 	g_hCooldownTimer = INVALID_HANDLE;
+}
+
+public Action:Timer_Limit(Handle:timer)
+{
+	for(new i = 1; i <= MaxClients; i++)
+	{
+		if(IsClientInGame(i) && IsPlayerAlive(i))
+		{
+			ForcePlayerSuicide(i);
+		}
+	}
+	g_hLimitTimer = INVALID_HANDLE;
 }
 
 /*
@@ -348,13 +408,13 @@ public Action:Timer_Cooldown(Handle:timer)
 
 public Native_Is_War(Handle:plugin, numParams)
 {
-	// Simly a getter function
+	// Simply a getter function
 	return g_bIsWar;	
 }
 
 public Native_Is_Init(Handle:plugin, numParams)
 {
-	// Simly a getter function
+	// Simply a getter function
 	if(g_wsCurrentWarStatus == WS_INITIALISING)
 	{
 		return true;	
@@ -362,18 +422,35 @@ public Native_Is_Init(Handle:plugin, numParams)
 	return false;
 }
 
+public Native_Is_Cooldown(Handle:plugin, numParams)
+{
+	// Simply a getter function
+	return g_bIsCooldown;
+}
+
 public Native_Get_WarRounds(Handle:plugin, numParams)
 {
 	return g_iWarRounds;
 }
 
+public Native_Get_MinNoWarRounds(Handle:plugin, numParams)
+{
+	return g_iMinNoWarRounds;
+}
+
+public Native_Set_MinNoWarRounds(Handle:plugin, numParams)
+{
+	g_iMinNoWarRounds = GetNativeCell(1);
+}
+
+public Native_Set_WarRounds(Handle:plugin, numParams)
+{
+	g_iWarRounds = GetNativeCell(1);
+}
+
 public Native_Set_Status(Handle:plugin, numParams)
 {
 	SetStatus(GetNativeCell(1));
-	if(g_bDebug)
-	{
-		PrintToServer("[War] Native_Set_Status called!");
-	}
 }
 
 
@@ -392,13 +469,9 @@ UpdateSetting(Handle:convar = INVALID_HANDLE){
 	{
 		PrintToServer("[WAR] A ConVar changed");
 	}
-	if(convar == g_cBuy)
+	else if(convar == g_cBuy)
 	{
 		g_bBuy = GetConVarBool(g_cBuy);
-	}
-	else if(convar == g_cBuyTime)
-	{
-		g_iBuyTime = GetConVarInt(g_cBuyTime);
 	}
 	else if(convar == g_cShowRules)
 	{
@@ -436,6 +509,14 @@ UpdateSetting(Handle:convar = INVALID_HANDLE){
 	{
 		g_fAntiStuckTime = GetConVarFloat(g_cAntiStuckTime);
 	}
+	else if(convar == g_cDFBuyTime)
+	{
+		if(g_bIsWar)
+		{
+			new p_fNewVal = GetConVarFloat(g_cDFBuyTime);
+			SetConVarFloat(g_cDFBuyTime, g_fBuyTime);
+		}
+	}
 }
 
 UpdateAllSettings()
@@ -443,10 +524,6 @@ UpdateAllSettings()
 	if(g_cBuy != INVALID_HANDLE)
 	{
 		g_bBuy = GetConVarBool(g_cBuy);
-	}
-	if(g_cBuyTime != INVALID_HANDLE)
-	{
-		g_iBuyTime = GetConVarInt(g_cBuyTime);
 	}
 	if(g_cShowRules != INVALID_HANDLE)
 	{
@@ -732,6 +809,7 @@ TeleportToWar()
 				}
 				TeleportEntity(i, g_vSpawnPosition, NULL_VECTOR, NULL_VECTOR);
 			}
+			g_aPlayerLateJoin[i] = false;
 		}
 	}
 	// Start the Cooldown
@@ -941,7 +1019,7 @@ stock RemoveAllWeapons(any:client)
 			AcceptEntityInput(wepIdx, "Kill");
 		}
 	}
-	GivePlayerItem(client, "weapon_knive");
+	GivePlayerItem(client, "weapon_knife");
 }
 
 
