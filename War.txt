@@ -1,0 +1,22 @@
+"Updater"
+{
+	"Information"
+	{
+		"Version"
+		{
+			"Latest"	"0.0.1"
+		}
+		
+		"Notes"	"Changelog:"
+		"Notes"	"Pre alpha release"
+	}
+	
+	"Files"
+	{
+		"Plugin"	"Path_SM/plugins/War.smx"
+		"Plugin"	"Path_SM/translations/war.phrases.txt"
+		"Plugin"	"Path_SM/translations/de/war.phrases.txt"
+		
+		"Source"	"Path_SM/scripting/War.sp"
+	}
+}
