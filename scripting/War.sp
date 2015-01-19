@@ -9,7 +9,6 @@
 #include <updater>
 
 #define UPDATE_URL		"http://bitbucket.toastdev.de/sourcemod-plugins/raw/master/War.txt"
-#define RULESCONFIG_PATH "/configs/war"
 public Plugin:myinfo = 
 {
 	name = "War",
