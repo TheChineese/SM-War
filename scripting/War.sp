@@ -38,14 +38,17 @@ new Handle:g_cDFFreezeTime = INVALID_HANDLE;
 new Handle:g_cDFBuyTime = INVALID_HANDLE;
 new Handle:g_cWarMoney = INVALID_HANDLE;
 
+// Forwards
+new Handle:g_hWarRoundForward = INVALID_HANDLE;
+new Handle:g_hWarCooldownForward = INVALID_HANDLE;
+new Handle:g_hWarStatusChangedForward = INVALID_HANDLE;
+new Handle:g_hWarLimitForward = INVALID_HANDLE;
+
 // Integer
-new g_iBuyTime;
 new g_iLimitRounds;
-new g_iLimitTime;
 new g_iAttackTeam = 2;
 new g_iDefenderTeam = 3;
 new g_iDurationRounds = 1;
-new g_iRulesTime;
 new g_iMinNoWarRounds;
 new g_iWarRounds;
 new g_iPlayerAccount;
@@ -53,6 +56,8 @@ new g_iPlayerAccount;
 // Float
 new Float:g_fCooldownTime = 0.0;
 new Float:g_fAntiStuckTime = 0.0;
+new Float:g_fBuyTime = 0.0;
+new Float:g_fLimitTime = 0.0;
 
 // Boolean
 new bool:g_bIsWar = false;
@@ -106,7 +111,7 @@ public OnPluginStart()
 	g_cBuyTime = AutoExecConfig_CreateConVar("sm_war_buy_time", "999", "Buytime during war (CS:GO uses seconds, CS:S uses minutes here)");
 	g_cLimitRounds = AutoExecConfig_CreateConVar("sm_war_limit_rounds", "10", "Min rounds between two war rounds (<= 0 = Disable limit)");
 	g_cDurationRounds = AutoExecConfig_CreateConVar("sm_war_duration_rounds", "3", "How many rounds will one war take", _, true, 1.0);
-	g_cAttackTeam = AutoExecConfig_CreateConVar("sm_war_attack_team", "2", "Which team will attack / wait in the equipment room? (1 = Random (currently not working), 2 = Terrorists, 3 = Counter Terrorists)", _, true, 1.0, true, 3.0);
+	g_cAttackTeam = AutoExecConfig_CreateConVar("sm_war_attack_team", "2", "Which team will attack / wait in the equipment room? (1 = Random (currently not working), 2 = Terrorists, 3 = Counter Terrorists)", _, true, 2.0, true, 3.0);
 	g_cLimitTime = AutoExecConfig_CreateConVar("sm_war_limit_time", "600", "Max time a war round will take ( <= 0 = Disable limit )");
 	g_cRulesTime = AutoExecConfig_CreateConVar("sm_war_rules_display_time", "10", "Time in seconds the rules should be displayed");
 	g_cCooldownTime = AutoExecConfig_CreateConVar("sm_war_cooldown_time", "30.0", "Time in seconds the war starts after round start");
@@ -115,13 +120,17 @@ public OnPluginStart()
 	g_cDFBuyTime = FindConVar("mp_buytime");
 
 	HookConVarChange(g_cBuy, ConVarChanged);
-	HookConVarChange(g_cBuyTime, ConVarChanged);
 	HookConVarChange(g_cDurationRounds, ConVarChanged);
 	HookConVarChange(g_cAttackTeam, ConVarChanged);
-	HookConVarChange(g_cLimitTime, ConVarChanged);
 	HookConVarChange(g_cLimitRounds, ConVarChanged);
-	HookConVarChange(g_cRulesTime, ConVarChanged);
 	HookConVarChange(g_cDFBuyTime, ConVarChanged);
+
+	// Create Forwards
+	g_hWarCooldownForward = CreateGlobalForward("WAR_OnCooldown", ET_Ignore);
+	g_hWarRoundForward = CreateGlobalForward("WAR_OnWarRound", ET_Ignore, Param_Cell);
+	g_hWarStatusChangedForward = CreateGlobalForward("WAR_OnStatusChanged", ET_Ignore, Param_Any, Param_Any);
+	g_hWarLimitForward = CreateGlobalForward("WAR_OnTimeLimit", ET_Ignore);
+
 
 	if(g_bDebug)
 	{
@@ -168,9 +177,13 @@ public OnMapStart()
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
    CreateNative("WAR_SetStatus", Native_Set_Status);
+   CreateNative("WAR_SetMinNoWarRounds", Native_Set_MinNoWarRounds);
+   CreateNative("WAR_SetWarRounds", Native_Set_WarRounds);
+   CreateNative("WAR_IsCooldown", Native_Is_Cooldown);
    CreateNative("WAR_IsWar", Native_Is_War);
    CreateNative("WAR_IsInit", Native_Is_Init);
    CreateNative("WAR_GetWarRounds", Native_Get_WarRounds);
+
    MarkNativeAsOptional("Updater_AddPlugin");
    return APLRes_Success;
 }
@@ -385,7 +398,7 @@ public Action:Timer_Cooldown(Handle:timer)
 	AntiStuckTeam(g_iAttackTeam, false);
 	g_bIsCooldown = false;
 	CheckGodMode(true);
-	g_hLimitTimer = CreateTimer(g_fLimitTime, Timer_Limit);
+	g_hLimitTimer = CreateTimer(GetConVarFloat(g_cLimitTime), Timer_Limit);
 
 	g_hCooldownTimer = INVALID_HANDLE;
 }
@@ -493,14 +506,6 @@ UpdateSetting(Handle:convar = INVALID_HANDLE){
 	{
 		g_iAttackTeam = GetConVarInt(g_cAttackTeam);
 	}
-	else if(convar == g_cLimitTime)
-	{
-		g_iLimitTime = GetConVarInt(g_cLimitTime);
-	}
-	else if(convar == g_cRulesTime)
-	{
-		g_iRulesTime = GetConVarInt(g_cRulesTime);
-	}
 	else if(convar == g_cCooldownTime)
 	{
 		g_fCooldownTime = GetConVarFloat(g_cCooldownTime);
@@ -513,8 +518,8 @@ UpdateSetting(Handle:convar = INVALID_HANDLE){
 	{
 		if(g_bIsWar)
 		{
-			new p_fNewVal = GetConVarFloat(g_cDFBuyTime);
-			SetConVarFloat(g_cDFBuyTime, g_fBuyTime);
+			new Float:p_fNewVal = GetConVarFloat(g_cDFBuyTime);
+			SetConVarFloat(g_cDFBuyTime, p_fNewVal);
 		}
 	}
 }
@@ -544,14 +549,6 @@ UpdateAllSettings()
 	if(g_cAttackTeam != INVALID_HANDLE)
 	{
 		g_iAttackTeam = GetConVarInt(g_cAttackTeam);
-	}
-	if(g_cLimitTime != INVALID_HANDLE)
-	{
-		g_iLimitTime = GetConVarInt(g_cLimitTime);
-	}
-	if(g_cRulesTime != INVALID_HANDLE)
-	{
-		g_iRulesTime = GetConVarInt(g_cRulesTime);
 	}
 	if(g_cCooldownTime != INVALID_HANDLE)
 	{
@@ -678,7 +675,7 @@ ShowRules()
 		if(IsClientInGame(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3))
 		{
 			PrintToServer("[WAR] Showing the rules to: %N", i);
-			SendPanelToClient(g_hRules, i, PanelCallback_Rules, g_iRulesTime);
+			SendPanelToClient(g_hRules, i, PanelCallback_Rules, GetConVarInt(g_cRulesTime));
 		}
 	}
 }
@@ -702,6 +699,7 @@ SetStatus(WarStatus:NewWarStatus)
 	{
 		if(NewWarStatus == WS_PROCESS)
 		{
+			PushStatusForward(g_wsCurrentWarStatus, WS_PROCESS);
 			g_wsCurrentWarStatus = WS_PROCESS;
 			g_bIsWar = true;
 			g_iWarRounds = 0;
@@ -715,6 +713,7 @@ SetStatus(WarStatus:NewWarStatus)
 		{
 			if(g_iMinNoWarRounds >= 1)
 			{
+				PushStatusForward(g_wsCurrentWarStatus, WS_INITIALISING);
 				g_wsCurrentWarStatus = WS_INITIALISING;
 				if(g_bDebug)
 				{
@@ -724,6 +723,7 @@ SetStatus(WarStatus:NewWarStatus)
 			}
 			else if(g_iMinNoWarRounds <= 0)
 			{
+				PushStatusForward(g_wsCurrentWarStatus, WS_PROCESS);
 				g_wsCurrentWarStatus = WS_PROCESS;
 				g_bIsWar = true;
 				g_iWarRounds = 0;
@@ -741,6 +741,7 @@ SetStatus(WarStatus:NewWarStatus)
 	{
 		if(NewWarStatus == WS_WAITING)
 		{
+			PushStatusForward(g_wsCurrentWarStatus, NewWarStatus);
 			g_wsCurrentWarStatus =  WS_WAITING;
 			if(g_bDebug)
 			{
@@ -750,6 +751,7 @@ SetStatus(WarStatus:NewWarStatus)
 		}
 		else if(NewWarStatus == WS_PROCESS)
 		{
+			PushStatusForward(g_wsCurrentWarStatus, NewWarStatus);
 			g_wsCurrentWarStatus = WS_PROCESS;
 			g_bIsWar = true;
 			g_iWarRounds = 0;
@@ -763,12 +765,23 @@ SetStatus(WarStatus:NewWarStatus)
 	}
 	else if(g_wsCurrentWarStatus == WS_PROCESS)
 	{
+		PushStatusForward(g_wsCurrentWarStatus, NewWarStatus);
 		g_wsCurrentWarStatus = NewWarStatus;
 		g_iMinNoWarRounds = g_iLimitRounds;
 		g_bIsWar = false;
 		return true;
 	}
 	return false;
+}
+
+PushStatusForward(WarStatus:p_wsOldStatus, WarStatus:p_wsNewStatus)
+{
+	Call_StartForward(g_hWarStatusChangedForward);
+
+	Call_PushCell(p_wsOldStatus);
+	Call_PushCell(p_wsNewStatus);
+
+	Call_Finish();
 }
 
 /*
