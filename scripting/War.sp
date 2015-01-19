@@ -253,6 +253,12 @@ public Event_RoundStart_Callback(Handle:event, const String:name[], bool:dontBro
 			ActivateHooks();
 			SetMoney();
 		}
+
+		// Call forward
+		Call_StartForward(g_hWarRoundForward);
+		Call_PushCell(g_iWarRounds - 1);
+
+		Call_Finish();
 	}
 }
 
@@ -400,11 +406,16 @@ public Action:Timer_Cooldown(Handle:timer)
 	CheckGodMode(true);
 	g_hLimitTimer = CreateTimer(GetConVarFloat(g_cLimitTime), Timer_Limit);
 
+	// Call forward
+	Call_StartForward(g_hWarCooldownForward);
+	Call_Finish();
+
 	g_hCooldownTimer = INVALID_HANDLE;
 }
 
 public Action:Timer_Limit(Handle:timer)
 {
+	// Kill all players
 	for(new i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i))
@@ -412,6 +423,11 @@ public Action:Timer_Limit(Handle:timer)
 			ForcePlayerSuicide(i);
 		}
 	}
+
+	// Call forward
+	Call_StartForward(g_hWarLimitForward);
+	Call_Finish();
+
 	g_hLimitTimer = INVALID_HANDLE;
 }
 
@@ -776,6 +792,7 @@ SetStatus(WarStatus:NewWarStatus)
 
 PushStatusForward(WarStatus:p_wsOldStatus, WarStatus:p_wsNewStatus)
 {
+	PrintToServer("Calling Foward: WAR_OnStatusChanged");
 	Call_StartForward(g_hWarStatusChangedForward);
 
 	Call_PushCell(p_wsOldStatus);
