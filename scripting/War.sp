@@ -14,7 +14,7 @@ public Plugin:myinfo =
 	name = "War",
 	author = "Toast",
 	description = "A war plugin for Jail",
-	version = "0.0.1",
+	version = "0.0.2",
 	url = "bitbucket.toastdev.de"
 }
 
@@ -181,7 +181,8 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
    CreateNative("WAR_IsCooldown", Native_Is_Cooldown);
    CreateNative("WAR_IsWar", Native_Is_War);
    CreateNative("WAR_IsInit", Native_Is_Init);
-   CreateNative("WAR_GetWarRounds", Native_Get_WarRounds);
+   CreateNative("WAR_GetRounds", Native_Get_WarRounds);
+   CreateNative("WAR_GetMinNoWarRounds", Native_Get_MinNoWarRounds);
 
    MarkNativeAsOptional("Updater_AddPlugin");
    return APLRes_Success;
