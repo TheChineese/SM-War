@@ -10,9 +10,27 @@ enum WarStatus{
 	WS_PROCESS
 };
 
+public SharedPlugin:__pl_war =
+{
+	name = "war",
+	file = "War.smx",
+	#if defined REQUIRE_PLUGIN
+	required = 1,
+	#else
+	required = 0,
+	#endif
+};
+
 #if !defined REQUIRE_PLUGIN
 public __pl_war_SetNTVOptional()
 {
+	MarkNativeAsOptional("WAR_SetMinNoWarRounds");
+	MarkNativeAsOptional("WAR_SetWarRounds");
+	MarkNativeAsOptional("WAR_GetRounds");
+	MarkNativeAsOptional("WAR_GetMinNoWarRounds");
+	MarkNativeAsOptional("WAR_IsWar");
+	MarkNativeAsOptional("WAR_IsInit");
+	MarkNativeAsOptional("WAR_Cooldown");
 	MarkNativeAsOptional("WAR_SetStatus");
 }
 #endif
@@ -47,7 +65,15 @@ native WAR_SetWarRounds(any:WarRounds);
  * @param         No params
  * @return        Number of current war round.
  */
-native War_GetRounds();
+native WAR_GetRounds();
+
+/**
+ * Get the number of current war rounds.
+ *
+ * @param         No params
+ * @return        Number of rounds a war can't start.
+ */
+native WAR_GetMinNoWarRounds();
 
 /**
  * Is war?
@@ -55,7 +81,7 @@ native War_GetRounds();
  * @param         No params
  * @return        True / False.
  */
-native War_IsWar();
+native WAR_IsWar();
 
 /**
  * Is war getting initialised?
@@ -63,7 +89,7 @@ native War_IsWar();
  * @param         No params
  * @return        True / False.
  */
-native War_IsInit();
+native WAR_IsInit();
 
 /**
  * Is war cooldown?
@@ -71,7 +97,7 @@ native War_IsInit();
  * @param         No params
  * @return        True / False.
  */
-native War_Cooldown();
+native WAR_Cooldown();
 
 
 /**
