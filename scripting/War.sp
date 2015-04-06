@@ -9,7 +9,12 @@
 #include <updater>
 
 #define UPDATE_URL		"http://bitbucket.toastdev.de/sourcemod-plugins/raw/master/War.txt"
-public Plugin:myinfo = 
+
+#pragma semicolon 1
+#pragma newdecls required
+
+
+public Plugin myinfo = 
 {
 	name = "War",
 	author = "Toast",
@@ -23,75 +28,75 @@ public Plugin:myinfo =
 *************************/
 
 // ConVar Handle
-new Handle:g_cBuy = INVALID_HANDLE;
-new Handle:g_cBuyTime = INVALID_HANDLE;
-new Handle:g_cLimitRounds = INVALID_HANDLE;
-new Handle:g_cDurationRounds = INVALID_HANDLE;
-new Handle:g_cAttackTeam = INVALID_HANDLE;
-new Handle:g_cLimitTime = INVALID_HANDLE;
-new Handle:g_cRulesTime = INVALID_HANDLE;
-new Handle:g_cShowRules = INVALID_HANDLE;
-new Handle:g_cCooldownTime = INVALID_HANDLE;
-new Handle:g_cAntiStuckTime = INVALID_HANDLE;
-new Handle:g_cDFFreezeTime = INVALID_HANDLE;
-new Handle:g_cDFBuyTime = INVALID_HANDLE;
-new Handle:g_cWarMoney = INVALID_HANDLE;
+ConVar g_cBuy = null;
+Handle g_cBuyTime = null;
+Handle g_cLimitRounds = null;
+Handle g_cDurationRounds = null;
+Handle g_cAttackTeam = null;
+Handle g_cLimitTime = null;
+Handle g_cRulesTime = null;
+Handle g_cShowRules = null;
+Handle g_cCooldownTime = null;
+Handle g_cAntiStuckTime = null;
+Handle g_cDFFreezeTime = null;
+Handle g_cDFBuyTime = null;
+Handle g_cWarMoney = null;
 
 // Forwards
-new Handle:g_hWarRoundForward = INVALID_HANDLE;
-new Handle:g_hWarCooldownForward = INVALID_HANDLE;
-new Handle:g_hWarStatusChangedForward = INVALID_HANDLE;
-new Handle:g_hWarLimitForward = INVALID_HANDLE;
+Handle g_hWarRoundForward = null;
+Handle g_hWarCooldownForward = null;
+Handle g_hWarStatusChangedForward = null;
+Handle g_hWarLimitForward = null;
 
 // Integer
-new g_iLimitRounds;
-new g_iAttackTeam = 2;
-new g_iDefenderTeam = 3;
-new g_iDurationRounds = 1;
-new g_iMinNoWarRounds;
-new g_iWarRounds;
-new g_iPlayerAccount;
+int g_iLimitRounds;
+int g_iAttackTeam = 2;
+int g_iDefenderTeam = 3;
+int g_iDurationRounds = 1;
+int g_iMinNoWarRounds;
+int g_iWarRounds;
+int g_iPlayerAccount;
 
 // Float
-new Float:g_fCooldownTime = 0.0;
-new Float:g_fAntiStuckTime = 0.0;
-new Float:g_fBuyTime = 0.0;
-new Float:g_fLimitTime = 0.0;
+float g_fCooldownTime = 0.0;
+float g_fAntiStuckTime = 0.0;
+float g_fBuyTime = 0.0;
+float g_fLimitTime = 0.0;
 
 // Boolean
-new bool:g_bIsWar = false;
-new bool:g_bBuy = false;
-new bool:g_bShowRules = false;
-new bool:g_bIsCooldown = false;
-new bool:g_bDebug = true;
+bool g_bIsWar = false;
+bool g_bBuy = false;
+bool g_bShowRules = false;
+bool g_bIsCooldown = false;
+bool g_bDebug = true;
 
 // Panel Handle
-new Handle:g_hRules = INVALID_HANDLE;
+Handle g_hRules = null;
 
 // Timer Handle
-new Handle:g_hCooldownTimer = INVALID_HANDLE;
-new Handle:g_hAntiStuckTimer = INVALID_HANDLE;
-new Handle:g_hBuyTimer = INVALID_HANDLE;
-new Handle:g_hLimitTimer = INVALID_HANDLE;
+Handle g_hCooldownTimer = null;
+Handle g_hAntiStuckTimer = null;
+Handle g_hBuyTimer = null;
+Handle g_hLimitTimer = null;
 
 // Vector
-new Float:g_vSpawnPosition[3];
-new Float:g_vAttackSpawnPosition[3];
+float g_vSpawnPosition[3];
+float g_vAttackSpawnPosition[3];
 
 // Arrays
-new bool:g_aPlayerThinkHook[MAXPLAYERS + 1];
-new bool:g_aPlayerGodMode[MAXPLAYERS + 1];
-new bool:g_aPlayerLateJoin[MAXPLAYERS + 1];
-new g_aPlayerMoney[MAXPLAYERS + 1];
+bool g_aPlayerThinkHook[MAXPLAYERS + 1];
+bool g_aPlayerGodMode[MAXPLAYERS + 1];
+bool g_aPlayerLateJoin[MAXPLAYERS + 1];
+int g_aPlayerMoney[MAXPLAYERS + 1];
 
 // WarStatus
-new WarStatus:g_wsCurrentWarStatus = WS_WAITING;
+WarStatus g_wsCurrentWarStatus = WS_WAITING;
 
 /*
 	Loading Stuff
 */
 
-public OnPluginStart()
+public void OnPluginStart()
 {
 	if(g_bDebug)
 	{
@@ -104,7 +109,7 @@ public OnPluginStart()
 		PrintToServer("[WAR] Setting Up ConVars");
 	}
 	// Handle the CVars
-	g_cBuy = AutoExecConfig_CreateConVar("sm_war_buy", "1", "Enable buy during war (1 = Enable / 0 = Disable)", _, true, 0.0, true, 1.0);
+	g_cBuy = CreateConVar("sm_war_buy", "1", "Enable buy during war (1 = Enable / 0 = Disable)", _, true, 0.0, true, 1.0);
 	g_cShowRules = AutoExecConfig_CreateConVar("sm_war_show_rules", "1", "Enable rules (1 = Enable / 0 = Disable)", _, true, 0.0, true, 1.0);
 	g_cWarMoney = AutoExecConfig_CreateConVar("sm_war_money", "16000", "How much money the players get during War", _, true, 0.0);
 	g_cBuyTime = AutoExecConfig_CreateConVar("sm_war_buy_time", "999", "Buytime during war (CS:GO uses seconds, CS:S uses minutes here)");
@@ -160,20 +165,20 @@ public OnPluginStart()
     }
 }
 
-public OnLibraryAdded(const String:name[])
+public void OnLibraryAdded(const char[] name)
 {
     if (StrEqual(name, "updater"))
     {
-        Updater_AddPlugin(UPDATE_URL)
+        Updater_AddPlugin(UPDATE_URL);
     }
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	FindCTSpawnPosition();
 }
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public APLRes AskPluginLoad2(Handle myself,bool late, char[] error, int err_max)
 {
    CreateNative("WAR_SetStatus", Native_Set_Status);
    CreateNative("WAR_SetMinNoWarRounds", Native_Set_MinNoWarRounds);
@@ -188,7 +193,7 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
    return APLRes_Success;
 }
 
-public ConVarChanged(Handle:convar, const String:oldValue[], const String:newValue[]) 
+public void ConVarChanged(Handle convar, char[] oldValue, char[] newValue) 
 {
 	if(!strcmp(oldValue, newValue))
 	{
@@ -200,7 +205,7 @@ public ConVarChanged(Handle:convar, const String:oldValue[], const String:newVal
 	Events
 */
 
-public Event_RoundStart_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart_Callback(Handle event, char[] name, bool dontBroadcast)
 {
 	if(g_wsCurrentWarStatus == WS_PROCESS)
 	{
@@ -262,7 +267,7 @@ public Event_RoundStart_Callback(Handle:event, const String:name[], bool:dontBro
 	}
 }
 
-public Event_RoundEnd_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd_Callback(Handle event, char[] name, bool dontBroadcast)
 {
 	// Kill all active Timers
 	SaveKillTimer(g_hAntiStuckTimer);
@@ -270,11 +275,11 @@ public Event_RoundEnd_Callback(Handle:event, const String:name[], bool:dontBroad
 	SaveKillTimer(g_hLimitTimer);
 }
 
-public Event_PlayerDisconnect_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerDisconnect_Callback(Handle event, char[] name, bool dontBroadcast)
 {
 	// Someone left the game
-	new p_iUserid = GetEventInt(event, "userid");
-	new p_iClient = GetClientOfUserId(p_iUserid);
+	int p_iUserid = GetEventInt(event, "userid");
+	int p_iClient = GetClientOfUserId(p_iUserid);
 
 	// Dectivate Think Hook
 	if(g_aPlayerThinkHook[p_iClient])
@@ -289,11 +294,11 @@ public Event_PlayerDisconnect_Callback(Handle:event, const String:name[], bool:d
 	g_aPlayerLateJoin[p_iClient] = true;
 }
 
-public Event_PlayerConnect_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerConnect_Callback(Handle event, char[] name, bool dontBroadcast)
 {
 	// Someone joined the game
-	new p_iUserid = GetEventInt(event, "userid");
-	new p_iClient = GetClientOfUserId(p_iUserid);
+	int p_iUserid = GetEventInt(event, "userid");
+	int p_iClient = GetClientOfUserId(p_iUserid);
 
 	// Activate Think Hook
 	if(g_bIsWar)
@@ -304,10 +309,10 @@ public Event_PlayerConnect_Callback(Handle:event, const String:name[], bool:dont
 	g_aPlayerLateJoin[p_iClient] = true;
 }
 
-public Event_PlayerSpawn_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerSpawn_Callback(Handle event, char[] name, bool dontBroadcast)
 {	
-	new p_iUserid = GetEventInt(event, "userid");
-	new p_iClient = GetClientOfUserId(p_iUserid);
+	int p_iUserid = GetEventInt(event, "userid");
+	int p_iClient = GetClientOfUserId(p_iUserid);
 
 	if(g_bIsWar && g_aPlayerLateJoin[p_iClient] == true)
 	{
@@ -333,10 +338,10 @@ public Event_PlayerSpawn_Callback(Handle:event, const String:name[], bool:dontBr
 	}
 }
 
-public Event_PlayerDeath_Callback(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerDeath_Callback(Handle event, char[] name, bool dontBroadcast)
 {
-	new p_iUserid = GetEventInt(event, "userid");
-	new p_iClient = GetClientOfUserId(p_iUserid);
+	int p_iUserid = GetEventInt(event, "userid");
+	int p_iClient = GetClientOfUserId(p_iUserid);
 
 	g_aPlayerLateJoin[p_iClient] = true;
 }
@@ -344,7 +349,7 @@ public Event_PlayerDeath_Callback(Handle:event, const String:name[], bool:dontBr
 	Hooks
 */
 
-public SDKHook_PostThink_Callback(client) 
+public void SDKHook_PostThink_Callback(int client) 
 {
 	// Somone started thinking? Let's confuse him!
 	if(IsClientInGame(client) && IsPlayerAlive(client))
@@ -358,7 +363,7 @@ public SDKHook_PostThink_Callback(client)
 	Menu Callbacks
 */
 
-public PanelCallback_Rules(Handle:menu, MenuAction:action, param1, param2)
+public int PanelCallback_Rules(Menu menu, MenuAction action, int param1, int param2)
 {
 	// Nothing
 }
@@ -367,13 +372,13 @@ public PanelCallback_Rules(Handle:menu, MenuAction:action, param1, param2)
 	Timer Callbacks
 */
 
-public Action:Timer_DisableAntiStuck(Handle:timer, any:team)
+public Action Timer_DisableAntiStuck(Handle p_hTimer, any team)
 {
 	if(g_bDebug)
 	{
 		PrintToServer("[WAR] Stopping anti stuck after %f seconds for team: %i!", g_fAntiStuckTime, team);
 	}
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && GetClientTeam(i) == team)
 		{
@@ -381,10 +386,10 @@ public Action:Timer_DisableAntiStuck(Handle:timer, any:team)
 		}
 	}
 
-	g_hAntiStuckTimer = INVALID_HANDLE;
+	g_hAntiStuckTimer = null;
 }
 
-public Action:Timer_Cooldown(Handle:timer)
+public Action Timer_Cooldown(Handle p_hTimer)
 {
 	if(g_bDebug)
 	{
@@ -392,7 +397,7 @@ public Action:Timer_Cooldown(Handle:timer)
 		PrintToServer("[WAR] Starting anti stuck!");
 	}
 
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && GetClientTeam(i) == g_iAttackTeam)
 		{
@@ -410,13 +415,13 @@ public Action:Timer_Cooldown(Handle:timer)
 	Call_StartForward(g_hWarCooldownForward);
 	Call_Finish();
 
-	g_hCooldownTimer = INVALID_HANDLE;
+	g_hCooldownTimer = null;
 }
 
-public Action:Timer_Limit(Handle:timer)
+public Action Timer_Limit(Handle p_hTimer)
 {
 	// Kill all players
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i))
 		{
@@ -428,20 +433,20 @@ public Action:Timer_Limit(Handle:timer)
 	Call_StartForward(g_hWarLimitForward);
 	Call_Finish();
 
-	g_hLimitTimer = INVALID_HANDLE;
+	g_hLimitTimer = null;
 }
 
 /*
 	Natives
 */
 
-public Native_Is_War(Handle:plugin, numParams)
+public int Native_Is_War(Handle plugin, int numParams)
 {
 	// Simply a getter function
 	return g_bIsWar;	
 }
 
-public Native_Is_Init(Handle:plugin, numParams)
+public int Native_Is_Init(Handle plugin, int numParams)
 {
 	// Simply a getter function
 	if(g_wsCurrentWarStatus == WS_INITIALISING)
@@ -451,33 +456,33 @@ public Native_Is_Init(Handle:plugin, numParams)
 	return false;
 }
 
-public Native_Is_Cooldown(Handle:plugin, numParams)
+public int Native_Is_Cooldown(Handle plugin, int numParams)
 {
 	// Simply a getter function
 	return g_bIsCooldown;
 }
 
-public Native_Get_WarRounds(Handle:plugin, numParams)
+public int Native_Get_WarRounds(Handle plugin, int numParams)
 {
 	return g_iWarRounds;
 }
 
-public Native_Get_MinNoWarRounds(Handle:plugin, numParams)
+public int Native_Get_MinNoWarRounds(Handle plugin, int numParams)
 {
 	return g_iMinNoWarRounds;
 }
 
-public Native_Set_MinNoWarRounds(Handle:plugin, numParams)
+public int Native_Set_MinNoWarRounds(Handle plugin, int numParams)
 {
 	g_iMinNoWarRounds = GetNativeCell(1);
 }
 
-public Native_Set_WarRounds(Handle:plugin, numParams)
+public int Native_Set_WarRounds(Handle plugin, int numParams)
 {
 	g_iWarRounds = GetNativeCell(1);
 }
 
-public Native_Set_Status(Handle:plugin, numParams)
+public int Native_Set_Status(Handle plugin, int numParams)
 {
 	SetStatus(GetNativeCell(1));
 }
@@ -493,7 +498,7 @@ public Native_Set_Status(Handle:plugin, numParams)
 	Settings
 */
 
-UpdateSetting(Handle:convar = INVALID_HANDLE){
+void UpdateSetting(Handle convar = null){
 	if(g_bDebug)
 	{
 		PrintToServer("[WAR] A ConVar changed");
@@ -534,19 +539,19 @@ UpdateSetting(Handle:convar = INVALID_HANDLE){
 	{
 		if(g_bIsWar)
 		{
-			new Float:p_fNewVal = GetConVarFloat(g_cDFBuyTime);
+			float p_fNewVal = GetConVarFloat(g_cDFBuyTime);
 			SetConVarFloat(g_cDFBuyTime, p_fNewVal);
 		}
 	}
 }
 
-UpdateAllSettings()
+void UpdateAllSettings()
 {
-	if(g_cBuy != INVALID_HANDLE)
+	if(g_cBuy != null)
 	{
 		g_bBuy = GetConVarBool(g_cBuy);
 	}
-	if(g_cShowRules != INVALID_HANDLE)
+	if(g_cShowRules != null)
 	{
 		g_bShowRules = GetConVarBool(g_cShowRules);
 		if(g_bShowRules)
@@ -554,23 +559,23 @@ UpdateAllSettings()
 			PrepareRules();
 		}
 	}
-	if(g_cLimitRounds != INVALID_HANDLE)
+	if(g_cLimitRounds != null)
 	{
 		g_iLimitRounds = GetConVarInt(g_cLimitRounds);
 	}
-	if(g_cDurationRounds != INVALID_HANDLE)
+	if(g_cDurationRounds != null)
 	{
 		g_iDurationRounds = GetConVarInt(g_cDurationRounds);
 	}
-	if(g_cAttackTeam != INVALID_HANDLE)
+	if(g_cAttackTeam != null)
 	{
 		g_iAttackTeam = GetConVarInt(g_cAttackTeam);
 	}
-	if(g_cCooldownTime != INVALID_HANDLE)
+	if(g_cCooldownTime != null)
 	{
 		g_fCooldownTime = GetConVarFloat(g_cCooldownTime);
 	}
-	if(g_cAntiStuckTime != INVALID_HANDLE)
+	if(g_cAntiStuckTime != null)
 	{
 		g_fAntiStuckTime = GetConVarFloat(g_cAntiStuckTime);
 	}
@@ -580,15 +585,15 @@ UpdateAllSettings()
 	Find Spawn for War
 */
 
-FindCTSpawnPosition()
+void FindCTSpawnPosition()
 {
 	if(g_bDebug)
 	{
 		PrintToServer("[WAR] Searching for spawn");
 	}
 	// Find CT spawn and save it's positions
-	decl String:p_sClassName[64];
-	for(new i = MaxClients; i < GetMaxEntities(); i++)
+	char p_sClassName[64];
+	for(int i = MaxClients; i < GetMaxEntities(); i++)
 	{
 		if(IsValidEdict(i) && IsValidEntity(i))
 		{
@@ -596,7 +601,7 @@ FindCTSpawnPosition()
 			if(StrEqual("info_player_counterterrorist", p_sClassName))
 			{
 				// This is a CT Spawn. Save it's position!
-				decl Float:p_vPosition[3];
+				float p_vPosition[3];
 				GetEntPropVector(i, Prop_Send, "m_vecOrigin", p_vPosition);
 				g_vSpawnPosition[0] = p_vPosition[0];
 				g_vSpawnPosition[1] = p_vPosition[1];
@@ -619,9 +624,10 @@ FindCTSpawnPosition()
 	Rules
 */
 
-PrepareRules()
+ void PrepareRules()
 {
-	decl String:p_sPathConfig[PLATFORM_MAX_PATH], String:p_sBuffer[256];
+	char p_sPathConfig[PLATFORM_MAX_PATH];
+	char p_sBuffer[256];
 	BuildPath(Path_SM, p_sPathConfig, sizeof(p_sPathConfig), "configs/war/rules.txt");
 	if(g_bDebug)
 	{
@@ -630,7 +636,7 @@ PrepareRules()
 	}
 	if(FileExists(p_sPathConfig))
 	{
-		if(g_hRules != INVALID_HANDLE)
+		if(g_hRules != null)
 		{
 			CloseHandle(g_hRules);
 		}
@@ -638,14 +644,14 @@ PrepareRules()
 		Format(p_sBuffer, sizeof(p_sBuffer), "%T", "RulesTitle", LANG_SERVER);
 		SetPanelTitle(g_hRules, p_sBuffer);
 
-		new Handle:p_hFile = INVALID_HANDLE;
-		decl String:p_sLine[256];
+		Handle p_hFile = null;
+		char p_sLine[256];
 		p_hFile = OpenFile(p_sPathConfig, "r");
 		if(g_bDebug)
 		{
 			PrintToServer("[WAR] Opend rules file:");
 		}
-		if(p_hFile != INVALID_HANDLE)
+		if(p_hFile != null)
 		{
 			while(!IsEndOfFile(p_hFile) && ReadFileLine(p_hFile, p_sLine, sizeof(p_sLine)))
 			{
@@ -679,14 +685,14 @@ PrepareRules()
 	}
 }
 
-ShowRules()
+void ShowRules()
 {
 	// We show the important rules!
 	if(g_bDebug)
 	{
 		PrintToServer("[WAR] Showing the rules");
 	}
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3))
 		{
@@ -700,7 +706,7 @@ ShowRules()
 	Set the War status
 */
 
-SetStatus(WarStatus:NewWarStatus)
+bool SetStatus(WarStatus NewWarStatus)
 {
 	if(g_bDebug)
 	{
@@ -790,7 +796,7 @@ SetStatus(WarStatus:NewWarStatus)
 	return false;
 }
 
-PushStatusForward(WarStatus:p_wsOldStatus, WarStatus:p_wsNewStatus)
+void PushStatusForward(WarStatus p_wsOldStatus, WarStatus p_wsNewStatus)
 {
 	PrintToServer("Calling Foward: WAR_OnStatusChanged");
 	Call_StartForward(g_hWarStatusChangedForward);
@@ -805,7 +811,7 @@ PushStatusForward(WarStatus:p_wsOldStatus, WarStatus:p_wsNewStatus)
 	Teleport and start timers
 */
 
-TeleportToWar()
+void TeleportToWar()
 {
 	// Free transfer to equipment room :O
 	if(g_bDebug)
@@ -813,7 +819,7 @@ TeleportToWar()
 
 		PrintToServer("[WAR] Teleporting players now");
 	}
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i) != 0 && GetClientTeam(i) != 1)
 		{
@@ -852,9 +858,9 @@ TeleportToWar()
 	AntiStuck timer trigger
 */
 
-AntiStuckTeam(any:p_iTeam, bool:p_bAddFreezetime = false)
+void AntiStuckTeam(int p_iTeam, bool p_bAddFreezetime = false)
 {
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i) == p_iTeam)
 		{
@@ -875,9 +881,9 @@ AntiStuckTeam(any:p_iTeam, bool:p_bAddFreezetime = false)
 	Hook triggers
 */
 
-ActivateHooks()
+void ActivateHooks()
 {
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && !g_aPlayerThinkHook[i])
 		{
@@ -887,9 +893,9 @@ ActivateHooks()
 	}
 }
 
-DeactivateHooks()
+void DeactivateHooks()
 {
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && !g_aPlayerThinkHook[i])
 		{
@@ -904,7 +910,7 @@ DeactivateHooks()
 	God Mode
 */
 
-CheckGodMode(bool:p_bDeactivate = false, any:p_iClient = 0, any:p_iTeam = 0)
+void CheckGodMode(bool p_bDeactivate = false, int p_iClient = 0, int p_iTeam = 0)
 {
 	if(p_bDeactivate)
 	{
@@ -924,7 +930,7 @@ CheckGodMode(bool:p_bDeactivate = false, any:p_iClient = 0, any:p_iTeam = 0)
 
 		if(p_iTeam == 2 || p_iTeam == 3)
 		{
-			for(new i = 1; i <= MaxClients; i++)
+			for(int i = 1; i <= MaxClients; i++)
 			{
 				if(IsValidEntity(i) && IsClientInGame(i) && g_aPlayerGodMode[i] && GetClientTeam(i) == p_iTeam)
 				{
@@ -939,7 +945,7 @@ CheckGodMode(bool:p_bDeactivate = false, any:p_iClient = 0, any:p_iTeam = 0)
 			return;
 		}
 
-		for(new i = 1; i <= MaxClients; i++)
+		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsValidEntity(i) && IsClientInGame(i) && g_aPlayerGodMode[i])
 			{
@@ -969,7 +975,7 @@ CheckGodMode(bool:p_bDeactivate = false, any:p_iClient = 0, any:p_iTeam = 0)
 
 	if(p_iTeam == 2 || p_iTeam == 3)
 	{
-		for(new i = 1; i <= MaxClients; i++)
+		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsValidEntity(i) && IsClientInGame(i) && !g_aPlayerGodMode[i] && GetClientTeam(i) == p_iTeam)
 			{
@@ -984,7 +990,7 @@ CheckGodMode(bool:p_bDeactivate = false, any:p_iClient = 0, any:p_iTeam = 0)
 		return;
 	}
 
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsValidEntity(i) && IsClientInGame(i) && !g_aPlayerGodMode[i])
 		{
@@ -1002,13 +1008,13 @@ CheckGodMode(bool:p_bDeactivate = false, any:p_iClient = 0, any:p_iTeam = 0)
 	Money
 */
 
-SetMoney()
+void SetMoney()
 {
 	// Some money for the world
 
 	if(g_bIsWar)
 	{
-		for(new i = 1; i <= MaxClients; i++)
+		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientInGame(i))
 			{
@@ -1022,7 +1028,7 @@ SetMoney()
 	}
 	else
 	{
-		for(new i = 1; i <= MaxClients; i++)
+		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientInGame(i))
 			{
@@ -1037,11 +1043,11 @@ SetMoney()
 */
 
 // Credits for this go to Hosties 2 plugin author
-stock RemoveAllWeapons(any:client)
+stock void RemoveAllWeapons(int client)
 {
 	// No Equipment ! ( K, knive is allowed ;) )
-	new wepIdx;
-	for (new i; i < 4; i++)
+	int wepIdx;
+	for (int i; i < 4; i++)
 	{
 		while ((wepIdx = GetPlayerWeaponSlot(client, i)) != -1)
 		{
@@ -1054,11 +1060,11 @@ stock RemoveAllWeapons(any:client)
 
 
 // Credits for this go to Alliedmodders ( who made this btw? )
-stock SaveKillTimer(&Handle:Timer)
+stock void SaveKillTimer(Handle timer)
 {
-    if(Timer != INVALID_HANDLE)
+    if(timer != null)
     {
-        CloseHandle(Timer);
-        Timer = INVALID_HANDLE;
+        CloseHandle(timer);
+        timer = null;
     }
 }
