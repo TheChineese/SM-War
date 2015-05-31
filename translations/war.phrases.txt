@@ -1,0 +1,18 @@
+﻿"Phrases"
+{
+	"prefix"
+	{
+		"en"		"{fullred}[War] "
+		"de"		"{fullred}[Krieg] "
+	}
+	"prefix_plain"
+	{
+		"en"		"[War] "
+		"de"		"[Krieg] "
+	}
+	"RulesTitle"
+	{
+		"en"		"[--- War Rules ---]"
+		"de"		"[--- Regeln ---]"
+	}
+}
