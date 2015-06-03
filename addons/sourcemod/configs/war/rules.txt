@@ -1,0 +1,2 @@
+This are the default rules! 
+Change them @ ../addons/sourcemod/configs/war/rules.txt!
