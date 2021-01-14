@@ -4,15 +4,18 @@
 	{
 		"en"		"{fullred}[War] "
 		"de"		"{fullred}[Krieg] "
+		"ru"		"{fullred}[Война] "
 	}
 	"prefix_plain"
 	{
 		"en"		"[War] "
 		"de"		"[Krieg] "
+		"ru"		"[Война] "
 	}
 	"RulesTitle"
 	{
 		"en"		"[--- War Rules ---]"
 		"de"		"[--- Regeln ---]"
+		"ru"		"[--- Правила войны ---]"
 	}
 }
